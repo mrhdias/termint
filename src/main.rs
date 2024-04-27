@@ -1,7 +1,15 @@
 //
 // Termint - Terminal Emulator
 // Author: Henrique Dias
-// Last Modification: 2024-04-26 19:30:05
+// Last Modification: 2024-04-27 13:19:05
+//
+// References:
+// https://stackoverflow.com/questions/72114626/why-gtk4-seems-to-use-only-48x48-icons-for-displaying-minimized-application-in-a/
+// https://stackoverflow.com/questions/71847278/gtk-4-and-applications-icons-how-to-include-an-application-icon-in-a-portable
+// export XDG_DATA_DIRS="$HOME/.local/share:$XDG_DATA_DIRS"
+// xdg-icon-resource forceupdate
+// gtk-update-icon-cache -f /home/hdias/.local/share/icons/hicolor
+// update-mime-database ~/.local/share/mime/
 //
 use gtk4::{
     gio::Cancellable,
@@ -120,7 +128,6 @@ fn make_app(settings: &Properties) {
             println!("Window destroyed.");
         });
 
-        // https://stackoverflow.com/questions/71847278/gtk-4-and-applications-icons-how-to-include-an-application-icon-in-a-portable
         window.set_icon_name(Some(&icon_name));
 
         let css_provider = CssProvider::new();

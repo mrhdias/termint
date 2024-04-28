@@ -1,16 +1,15 @@
 //
 // Termint - Terminal Emulator
 // Author: Henrique Dias
-// Last Modification: 2024-04-27 13:19:05
+// Last Modification: 2024-04-28 18:51:53
 //
 // References:
 // https://stackoverflow.com/questions/72114626/why-gtk4-seems-to-use-only-48x48-icons-for-displaying-minimized-application-in-a/
 // https://stackoverflow.com/questions/71847278/gtk-4-and-applications-icons-how-to-include-an-application-icon-in-a-portable
-// export XDG_DATA_DIRS="$HOME/.local/share:$XDG_DATA_DIRS"
-// xdg-icon-resource forceupdate
-// gtk-update-icon-cache -f /home/hdias/.local/share/icons/hicolor
-// update-mime-database ~/.local/share/mime/
 //
+
+// use gio::ApplicationFlags;
+
 use gtk4::{
     gio::Cancellable,
     prelude::*,
@@ -25,6 +24,7 @@ use vte4::{
     Terminal,
     TerminalExt
 };
+
 use std::{
     env,
     fs,
@@ -33,12 +33,15 @@ use std::{
     path::{Path, PathBuf}
 };
 
-// use std::sync::{Arc, Mutex};
+use clap::{Command, Arg, ArgAction, value_parser};
 use ini::{Ini, Properties};
+
+// use std::sync::{Arc, Mutex};
 
 // static mut BUFFER: String = String::new();
 
 const APPNAME: &str = "termint";
+const VERSION: &str = "0.0.1";
 
 fn make_terminal() -> Terminal {
     // https://python-forum.io/thread-16720.html
@@ -79,8 +82,9 @@ fn make_terminal() -> Terminal {
     let timeout = -1;
     let cancellable = Cancellable::new();
     let cancellable_ref = Some(&cancellable);
-    let callback = |pid| {
-        println!("pid {:?}", pid);
+    let callback = |_pid| {
+         // println!("pid {:?}", pid);
+         return;
     };
 
     let pty = Pty::new_sync(flags, cancellable_ref).unwrap();
@@ -101,6 +105,7 @@ fn make_terminal() -> Terminal {
 }
 
 fn make_app(settings: &Properties) {
+
     let application = Application::builder()
         .application_id("org.example.termint")
         .build();
@@ -216,7 +221,11 @@ fn make_app(settings: &Properties) {
         window.show();
     });
 
-    application.run();
+    let empty: Vec<String> = vec![];
+    application.run_with_args(&empty);
+
+    // application.run();
+
 }
 
 fn default_styles_file(file_path: &PathBuf) {
@@ -272,33 +281,65 @@ fn default_config_file(config_dir: &PathBuf) {
 
 fn main() {
 
-    // .config/termint/termint.ini
+    let matches = Command::new(APPNAME)
+        .version(VERSION)
+        .about("Minimal terminal emulator with mint flavor!")
+        .arg(
+            Arg::new("directory")
+                .help("Sets a custom config directory")
+                .short('d')
+                .long("dir")
+                .value_name("DIRECTORY")
+                .value_parser(value_parser!(PathBuf))
+                .required(false))
+        .arg(
+            Arg::new("init")
+                .help("Create the directory with the default settings if they do not exist")
+                .short('i')
+                .long("init")
+                .required(false)
+                .action(ArgAction::SetTrue) // set true if the arg is added
+        ).get_matches();
 
-    // get the path to the user's home directory
-    let home= match env::var("HOME") {
-        Ok(home) => home,
-        Err(err) => {
-            panic!("unabled to get the home: {}", err);
+    let config_dir = || -> PathBuf {
+        let custom_dir = matches.get_one::<PathBuf>("directory");
+        if !custom_dir.is_none() {
+            let dir_path = custom_dir.unwrap().display().to_string();
+            return Path::new(&dir_path).join(APPNAME);
         }
-    };
+        // get the path to the user's home directory
+        let home= match env::var("HOME") {
+            Ok(home) => home,
+            Err(err) => {
+                panic!("unabled to get the home: {}", err);
+            }
+        };
 
-    let config_dir = Path::new(&home)
-        .join(".config")
-        .join(APPNAME);
+        Path::new(&home)
+            .join(".config")
+            .join(APPNAME)
+    }();
 
-    if !config_dir.is_dir() {
-        if let Err(err) = fs::create_dir_all(&config_dir) {
-            panic!("failed to create configuration directory: {}", err);
+    let create = matches.get_one::<bool>("init").unwrap();
+
+    let ini_file = config_dir.join(format!("{}.ini", APPNAME));
+    if *create {
+        if !config_dir.is_dir() {
+            if let Err(err) = fs::create_dir_all(&config_dir) {
+                panic!("failed to create configuration directory: {}", err);
+            }
+        }
+
+        if !config_dir.join(&ini_file).exists() {
+            default_config_file(&config_dir);
         }
     }
 
-    let ini_file = &config_dir.join(format!("{}.ini", APPNAME));
-
-    if !config_dir.join(ini_file).exists() {
+    if !config_dir.join(&ini_file).exists() {
         default_config_file(&config_dir);
     }
 
-    let config = match Ini::load_from_file(ini_file) {
+    let config = match Ini::load_from_file(&ini_file) {
         Ok(config) => config,
         Err(err) => {
             panic!("failed to parse config file: {}", err);

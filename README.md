@@ -1,7 +1,7 @@
 ![Termint Logo](https://raw.githubusercontent.com/mrhdias/termint/main/icons/hicolor/64x64/apps/termint.svg)
 
 # Termint
-Minimal terminal emulator written in Rust with gtk4/vte4
+Minimal Gtk4/Vte4 terminal emulator written in Rust, perfect for enjoying a cup of mint tea while working on your command line skills.
 
 To take a test drive:
 ```sh

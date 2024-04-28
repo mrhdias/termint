@@ -1,7 +1,7 @@
 //
 // Termint - Terminal Emulator
 // Author: Henrique Dias
-// Last Modification: 2024-04-28 18:51:53
+// Last Modification: 2024-04-28 23:15:55
 //
 // References:
 // https://stackoverflow.com/questions/72114626/why-gtk4-seems-to-use-only-48x48-icons-for-displaying-minimized-application-in-a/
@@ -87,7 +87,10 @@ fn make_terminal() -> Terminal {
          return;
     };
 
-    let pty = Pty::new_sync(flags, cancellable_ref).unwrap();
+    // Spawn a new PTY
+    let pty = Pty::new_sync(flags, cancellable_ref)
+        .expect("Failed to create PTY");
+
     pty.spawn_async(
         Some(&working_directory), // working_directory
         &args,               // argv
@@ -144,13 +147,13 @@ fn make_app(settings: &Properties) {
             gtk4::PolicyType::Automatic);
 
         let sw_style_context = scrolled_window.style_context();
-        sw_style_context.add_class("scrolled-window-styles");
+        sw_style_context.add_class("scrolled-window");
         sw_style_context.add_provider(&css_provider, gtk4::STYLE_PROVIDER_PRIORITY_APPLICATION);
 
         let terminal = make_terminal();
 
         let term_style_context = terminal.style_context();
-        term_style_context.add_class("terminal-styles");
+        term_style_context.add_class("terminal");
         term_style_context.add_provider(&css_provider, gtk4::STYLE_PROVIDER_PRIORITY_APPLICATION);
 
         let win = window.clone();
@@ -161,11 +164,19 @@ fn make_app(settings: &Properties) {
             }
         });
 
-        let app_clone = app.clone();
         // quit the application
+        // let app_clone = app.clone();
+        // terminal.connect_eof(move |_terminal|{
+        //     app_clone.quit();
+        // });
+
+        // quit the application
+        let win = window.clone();
         terminal.connect_eof(move |_terminal|{
-            app_clone.quit();
+            win.close();
         });
+
+
 
         // this code is for testing purposes only
         /*
@@ -238,14 +249,14 @@ fn default_styles_file(file_path: &PathBuf) {
     };
 
     let styles_content = "
-.scrolled-window-styles {
+.scrolled-window {
     /* background-image: url(\".config/{}/background.jpg\"); */
     background-size: cover;
     background-repeat: no-repeat;
     background-position: center;
     background-color: rgba(255, 255, 255, 0);
 }
-.terminal-styles {
+.terminal {
     opacity: 0.92;
     font-size: 12px;
     font-family: monospace;

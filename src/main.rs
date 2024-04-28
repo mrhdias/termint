@@ -286,7 +286,7 @@ fn main() {
         .about("Minimal terminal emulator with mint flavor!")
         .arg(
             Arg::new("directory")
-                .help("Sets a custom config directory")
+                .help("Sets a custom settings directory")
                 .short('d')
                 .long("dir")
                 .value_name("DIRECTORY")

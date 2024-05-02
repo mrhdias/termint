@@ -1,11 +1,12 @@
 //
 // Termint - Terminal Emulator
 // Author: Henrique Dias
-// Last Modification: 2024-04-28 23:15:55
+// Last Modification: 2024-05-02 22:23:57
 //
 // References:
 // https://stackoverflow.com/questions/72114626/why-gtk4-seems-to-use-only-48x48-icons-for-displaying-minimized-application-in-a/
 // https://stackoverflow.com/questions/71847278/gtk-4-and-applications-icons-how-to-include-an-application-icon-in-a-portable
+// https://docs.rust-embedded.org/book/unsorted/speed-vs-size.html
 //
 
 // use gio::ApplicationFlags;
@@ -113,10 +114,14 @@ fn make_app(settings: &Properties) {
         .application_id("org.example.termint")
         .build();
 
-    let default_width = settings.get("default_width")
-        .unwrap().parse::<i32>().unwrap();
-    let default_height = settings.get("default_height")
-        .unwrap().parse::<i32>().unwrap();
+    let default_width: u32 = settings.get("default_width")
+        .unwrap()
+        .parse()
+        .expect("default_width value conversion error");
+    let default_height: u32 = settings.get("default_height")
+        .unwrap()
+        .parse()
+        .expect("default_height value conversion error");
     let styles_file = settings.get("styles_file")
         .unwrap().to_string();
     let icon_name = settings.get("icon_name")
@@ -126,10 +131,10 @@ fn make_app(settings: &Properties) {
         let window = ApplicationWindow::builder()
             .application(app)
             .title("Termint")
-            .default_width(default_width)
-            .default_height(default_height)
-            .width_request(default_width)
-            .height_request(default_height)
+            .default_width(default_width as i32)
+            .default_height(default_height as i32)
+            .width_request(default_width as i32)
+            .height_request(default_height as i32)
             .build();
 
         window.connect_destroy(|_| {
@@ -331,10 +336,10 @@ fn main() {
             .join(APPNAME)
     }();
 
-    let create = matches.get_one::<bool>("init").unwrap();
+    let create: bool = *matches.get_one("init").unwrap();
 
     let ini_file = config_dir.join(format!("{}.ini", APPNAME));
-    if *create {
+    if create {
         if !config_dir.is_dir() {
             if let Err(err) = fs::create_dir_all(&config_dir) {
                 panic!("failed to create configuration directory: {}", err);

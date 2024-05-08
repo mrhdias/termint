@@ -1,7 +1,7 @@
 //
 // Termint - Terminal Emulator
 // Author: Henrique Dias
-// Last Modification: 2024-05-02 22:23:57
+// Last Modification: 2024-05-08 19:11:26
 //
 // References:
 // https://stackoverflow.com/questions/72114626/why-gtk4-seems-to-use-only-48x48-icons-for-displaying-minimized-application-in-a/
@@ -41,7 +41,9 @@ use ini::{Ini, Properties};
 
 // static mut BUFFER: String = String::new();
 
-const APPNAME: &str = "termint";
+const APP_ID: &str = "org.gtk_rs.Termint";
+const APP_NAME: &str = "termint";
+const APP_TITLE: &str = "Termint";
 const VERSION: &str = "0.0.1";
 
 fn make_terminal() -> Terminal {
@@ -108,10 +110,10 @@ fn make_terminal() -> Terminal {
     return terminal;
 }
 
-fn make_app(settings: &Properties) {
+fn build_ui(settings: &Properties) {
 
     let application = Application::builder()
-        .application_id("org.example.termint")
+        .application_id(APP_ID)
         .build();
 
     let default_width: u32 = settings.get("default_width")
@@ -123,14 +125,16 @@ fn make_app(settings: &Properties) {
         .parse()
         .expect("default_height value conversion error");
     let styles_file = settings.get("styles_file")
-        .unwrap().to_string();
+        .unwrap()
+        .to_string();
     let icon_name = settings.get("icon_name")
-        .unwrap().to_string();
+        .unwrap()
+        .to_string();
 
     application.connect_activate(move |app| {
         let window = ApplicationWindow::builder()
             .application(app)
-            .title("Termint")
+            .title(APP_TITLE)
             .default_width(default_width as i32)
             .default_height(default_height as i32)
             .width_request(default_width as i32)
@@ -180,8 +184,6 @@ fn make_app(settings: &Properties) {
         terminal.connect_eof(move |_terminal|{
             win.close();
         });
-
-
 
         // this code is for testing purposes only
         /*
@@ -234,7 +236,8 @@ fn make_app(settings: &Properties) {
 
         scrolled_window.set_child(Some(&terminal));
         window.set_child(Some(&scrolled_window));
-        window.show();
+        // window.show();
+        window.present();
     });
 
     let empty: Vec<String> = vec![];
@@ -265,7 +268,7 @@ fn default_styles_file(file_path: &PathBuf) {
     opacity: 0.92;
     font-size: 12px;
     font-family: monospace;
-}".replace("{}", APPNAME);
+}".replace("{}", APP_NAME);
 
     if let Err(err) = file.write_all(styles_content.as_bytes()) {
         panic!("failed to write to file: {}", err);
@@ -292,12 +295,12 @@ fn default_config_file(config_dir: &PathBuf) {
         .set("icon_name", "computer")
         .set("styles_file", styles_file.to_str().unwrap().to_string());
 
-    conf.write_to_file(config_dir.join(format!("{}.ini", APPNAME))).unwrap();
+    conf.write_to_file(config_dir.join(format!("{}.ini", APP_NAME))).unwrap();
 }
 
 fn main() {
 
-    let matches = Command::new(APPNAME)
+    let matches = Command::new(APP_NAME)
         .version(VERSION)
         .about("Minimal terminal emulator with mint flavor!")
         .arg(
@@ -321,7 +324,7 @@ fn main() {
         let custom_dir = matches.get_one::<PathBuf>("directory");
         if !custom_dir.is_none() {
             let dir_path = custom_dir.unwrap().display().to_string();
-            return Path::new(&dir_path).join(APPNAME);
+            return Path::new(&dir_path).join(APP_NAME);
         }
         // get the path to the user's home directory
         let home= match env::var("HOME") {
@@ -333,12 +336,12 @@ fn main() {
 
         Path::new(&home)
             .join(".config")
-            .join(APPNAME)
+            .join(APP_NAME)
     }();
 
     let create: bool = *matches.get_one("init").unwrap();
 
-    let ini_file = config_dir.join(format!("{}.ini", APPNAME));
+    let ini_file = config_dir.join(format!("{}.ini", APP_NAME));
     if create {
         if !config_dir.is_dir() {
             if let Err(err) = fs::create_dir_all(&config_dir) {
@@ -364,5 +367,5 @@ fn main() {
 
     let settings = config.section(Some("Settings")).unwrap();
 
-    make_app(settings);
+    build_ui(settings);
 }

@@ -1,7 +1,7 @@
 //
 // Termint - Terminal Emulator
 // Author: Henrique Dias
-// Last Modification: 2024-05-08 19:11:26
+// Last Modification: 2024-05-18 11:59:27
 //
 // References:
 // https://stackoverflow.com/questions/72114626/why-gtk4-seems-to-use-only-48x48-icons-for-displaying-minimized-application-in-a/
@@ -78,7 +78,7 @@ fn make_terminal() -> Terminal {
     let child_setup = || {
         // get the user
         match env::var("USER") {
-            Ok(user) => println!("Wellcome {}!", user),
+            Ok(user) => println!("Welcome {}!", user),
             Err(err) => println!("unabled to get the user: {}", err)
         };
     };

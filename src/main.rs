@@ -1,7 +1,7 @@
 //
 // Termint - Terminal Emulator
 // Author: Henrique Dias
-// Last Modification: 2024-05-18 11:59:27
+// Last Modification: 2024-07-04 00:15:51
 //
 // References:
 // https://stackoverflow.com/questions/72114626/why-gtk4-seems-to-use-only-48x48-icons-for-displaying-minimized-application-in-a/
@@ -17,7 +17,7 @@ use gtk4::{
     Application,
     ApplicationWindow,
     ScrolledWindow,
-    CssProvider
+    CssProvider,
 };
 use vte4::{
     Pty,
@@ -31,7 +31,8 @@ use std::{
     fs,
     fs::File,
     io::Write,
-    path::{Path, PathBuf}
+    path::{Path, PathBuf},
+    process
 };
 
 use clap::{Command, Arg, ArgAction, value_parser};
@@ -46,7 +47,7 @@ const APP_NAME: &str = "termint";
 const APP_TITLE: &str = "Termint";
 const VERSION: &str = "0.0.1";
 
-fn make_terminal() -> Terminal {
+fn make_terminal(cmd: &str) -> Terminal {
     // https://python-forum.io/thread-16720.html
     let terminal = Terminal::new();
 
@@ -71,10 +72,16 @@ fn make_terminal() -> Terminal {
             panic!("unabled to get the user's shell: {}", err);
         }
     };
+
     args.push(shell.as_str());
+    if !cmd.is_empty() {
+        args.push("-c");
+        args.push(cmd);
+    }
 
     let envv = vec![];
-    let spawn_flags = gtk4::glib::SpawnFlags::DO_NOT_REAP_CHILD;
+
+    let spawn_flags = gtk4::glib::SpawnFlags::SEARCH_PATH | gtk4::glib::SpawnFlags::DO_NOT_REAP_CHILD;
     let child_setup = || {
         // get the user
         match env::var("USER") {
@@ -110,11 +117,7 @@ fn make_terminal() -> Terminal {
     return terminal;
 }
 
-fn build_ui(settings: &Properties) {
-
-    let application = Application::builder()
-        .application_id(APP_ID)
-        .build();
+fn build_ui(settings: &Properties, command: &str) {
 
     let default_width: u32 = settings.get("default_width")
         .unwrap()
@@ -130,6 +133,26 @@ fn build_ui(settings: &Properties) {
     let icon_name = settings.get("icon_name")
         .unwrap()
         .to_string();
+
+    let cmd = command.to_string();
+
+    // https://lazka.github.io/pgi-docs/Gio-2.0/flags.html
+    let flags = if cmd.is_empty() {
+        Default::default()
+    } else {
+        gio::ApplicationFlags::NON_UNIQUE
+    };
+
+    let application = Application::builder()
+        .application_id(APP_ID)
+        .flags(flags)
+        .build();
+
+    // let application = Application::new(
+    //    Some(APP_ID),
+    //     // Default::default(),
+    //     gio::ApplicationFlags::NON_UNIQUE,
+    // );
 
     application.connect_activate(move |app| {
         let window = ApplicationWindow::builder()
@@ -159,7 +182,7 @@ fn build_ui(settings: &Properties) {
         sw_style_context.add_class("scrolled-window");
         sw_style_context.add_provider(&css_provider, gtk4::STYLE_PROVIDER_PRIORITY_APPLICATION);
 
-        let terminal = make_terminal();
+        let terminal = make_terminal(&cmd);
 
         let term_style_context = terminal.style_context();
         term_style_context.add_class("terminal");
@@ -317,8 +340,31 @@ fn main() {
                 .short('i')
                 .long("init")
                 .required(false)
-                .action(ArgAction::SetTrue) // set true if the arg is added
+                .action(ArgAction::SetTrue)) // set true if the arg is added
+        .arg(
+            Arg::new("command")
+                .help("Execute the specified command")
+                .short('c')
+                .long("command")
+                .value_name("COMMAND")
+                .value_parser(value_parser!(PathBuf))
+                .required(false)
         ).get_matches();
+
+    let path = matches.get_one::<PathBuf>("command");
+
+    // TODO: Check if the path is an executable file.
+    let cmd = match path {
+        Some(path) => {
+            if path.exists() && path.is_file() {
+                path.to_string_lossy().to_string()
+            } else {
+                eprintln!("the path {} is not valid", path.display());
+                process::exit(1);
+            }
+        },
+        None => "".to_string(),
+    };
 
     let config_dir = || -> PathBuf {
         let custom_dir = matches.get_one::<PathBuf>("directory");
@@ -367,5 +413,5 @@ fn main() {
 
     let settings = config.section(Some("Settings")).unwrap();
 
-    build_ui(settings);
+    build_ui(settings, &cmd);
 }

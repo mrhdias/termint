@@ -346,7 +346,7 @@ fn main() {
                 .help("Execute the specified command")
                 .short('c')
                 .long("command")
-                .value_name("COMMAND")
+                .value_name("PATH")
                 .value_parser(value_parser!(PathBuf))
                 .required(false)
         ).get_matches();

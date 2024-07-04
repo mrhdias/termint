@@ -14,11 +14,11 @@ Minimal terminal emulator with mint flavor!
 Usage: termint [OPTIONS]
 
 Options:
-  -d, --dir <DIRECTORY>    Sets a custom settings directory
-  -i, --init               Create the directory with the default settings if they do not exist
-  -c, --command <COMMAND>  Execute the specified command
-  -h, --help               Print help
-  -V, --version            Print version
+  -d, --dir <DIRECTORY>  Sets a custom settings directory
+  -i, --init             Create the directory with the default settings if they do not exist
+  -c, --command <PATH>   Execute the specified command
+  -h, --help             Print help
+  -V, --version          Print version
 ```
 > [!TIP]
 > To create the initial directory with the default settings, the "-i" option must be passed.

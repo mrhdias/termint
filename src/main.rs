@@ -31,8 +31,7 @@ use std::{
     fs,
     fs::File,
     io::Write,
-    path::{Path, PathBuf},
-    process
+    path::{Path, PathBuf}
 };
 
 use clap::{Command, Arg, ArgAction, value_parser};
@@ -57,13 +56,15 @@ fn make_terminal(cmd: &str) -> Terminal {
 
     let flags = PtyFlags::DEFAULT;
 
-    let working_directory = env::current_dir()
-        .unwrap()
-        .to_str()
-        .unwrap()
-        .to_string();
+    let working_directory = match env::current_dir() {
+        Ok(dir) => &dir.to_string_lossy().to_string(),
+        Err(err) => {
+            eprintln!("unabled to get the current directory: {}", err);
+            ""
+        }
+    };
 
-    let mut args = vec![];
+    let mut argv = vec![];
 
     // get the user's shell
     let shell = match env::var("SHELL") {
@@ -73,22 +74,27 @@ fn make_terminal(cmd: &str) -> Terminal {
         }
     };
 
-    args.push(shell.as_str());
+    argv.push(shell.as_str());
     if !cmd.is_empty() {
-        args.push("-c");
-        args.push(cmd);
+        argv.push("-c");
+        argv.push(cmd);
     }
 
     let envv = vec![];
 
     let spawn_flags = gtk4::glib::SpawnFlags::SEARCH_PATH | gtk4::glib::SpawnFlags::DO_NOT_REAP_CHILD;
-    let child_setup = || {
-        // get the user
-        match env::var("USER") {
-            Ok(user) => println!("Welcome {}!", user),
-            Err(err) => println!("unabled to get the user: {}", err)
-        };
+    let child_setup = if cmd.is_empty() {
+        || {}
+    } else {
+        || {
+            // get the user
+            match env::var("USER") {
+                Ok(user) => println!("Welcome {}!", user),
+                Err(err) => eprintln!("unabled to get the user: {}", err)
+            };
+        }
     };
+
     let timeout = -1;
     let cancellable = Cancellable::new();
     let cancellable_ref = Some(&cancellable);
@@ -102,8 +108,8 @@ fn make_terminal(cmd: &str) -> Terminal {
         .expect("Failed to create PTY");
 
     pty.spawn_async(
-        Some(&working_directory), // working_directory
-        &args,               // argv
+        Some(working_directory), // working_directory
+        &argv,                  // argv
         &envv,                    // envv
         spawn_flags,              // spawn_flags
         child_setup,              // child_setup,
@@ -346,24 +352,15 @@ fn main() {
                 .help("Execute the specified command")
                 .short('c')
                 .long("command")
-                .value_name("PATH")
-                .value_parser(value_parser!(PathBuf))
+                .value_name("COMMAND")
+                .value_parser(value_parser!(String))
                 .required(false)
         ).get_matches();
 
-    let path = matches.get_one::<PathBuf>("command");
-
-    // TODO: Check if the path is an executable file.
-    let cmd = match path {
-        Some(path) => {
-            if path.exists() && path.is_file() {
-                path.to_string_lossy().to_string()
-            } else {
-                eprintln!("the path {} is not valid", path.display());
-                process::exit(1);
-            }
-        },
-        None => "".to_string(),
+    let command = matches.get_one::<String>("command");
+    let cmd = match command {
+        Some(c) => c,
+        None => "",
     };
 
     let config_dir = || -> PathBuf {

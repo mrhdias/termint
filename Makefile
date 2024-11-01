@@ -15,5 +15,4 @@ run: ./${BINARY_NAME}
 build_and_run: build run
 
 clean:
-	go clean
 	rm -f ${BINARY_NAME}

@@ -11,14 +11,28 @@ $ cargo build --release
 $ scripts/install-icons.sh
 $ target/release/termint -h
 Minimal terminal emulator with mint flavor!
+
 Usage: termint [OPTIONS]
 
 Options:
-  -d, --dir <DIRECTORY>    Sets a custom settings directory
-  -i, --init               Create the directory with the default settings if they do not exist
-  -c, --command <COMMAND>  Execute the specified command
-  -h, --help               Print help
-  -V, --version            Print version
+  -a, --app-id <ID>
+          window application ID (termint)
+  -d, --dir <PATH>
+          Sets a custom settings directory
+  -i, --init-settings
+          Create the directory with the default settings if they do not exist
+  -e, --execute <CMD>
+          Execute the specified command (for compatibility with xterm -e)
+  -L, --login-shell <PATH>
+          start shell as a login shell
+  -D, --working-directory <PATH>
+          directory to start in (CWD)
+  -w, --window-size-pixels <WIDTHxHEIGHT>
+          initial width and height, in pixels
+  -h, --help
+          Print help
+  -V, --version
+          Print version
 ```
 > [!TIP]
 > To create the initial directory with the default settings, the "-i" option must be passed.

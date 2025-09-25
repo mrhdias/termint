@@ -47,3 +47,19 @@ $ termint
 Everyone Loves Screenshots!
 
 ![Termint Screenshot](https://raw.githubusercontent.com/mrhdias/termint/main/screenshot.png)
+
+> [!TIP]
+> How to fix the issue with accents on letters in Wayland/Labwc?
+```
+# Install fcitx
+$ sudo pacman -S fcitx5 fcitx5-gtk fcitx5-qt fcitx5-configtool
+# Edit the Labwc environment file
+$ nano -w .config/labwc/environment
+```
+Add the following lines:
+```
+GTK_IM_MODULE=fcitx
+QT_IM_MODULE=fcitx
+XMODIFIERS=@im=fcitx
+GDK_BACKEND=wayland
+```

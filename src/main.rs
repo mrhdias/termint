@@ -1,7 +1,7 @@
 //
 // Termint - Terminal Emulator
 // Author: Henrique Dias
-// Last Modification: 2024-11-03 11:52:17
+// Last Modification: 2025-09-25 19:43:01
 //
 // References:
 // https://stackoverflow.com/questions/72114626/why-gtk4-seems-to-use-only-48x48-icons-for-displaying-minimized-application-in-a/
@@ -21,6 +21,7 @@ use gtk4::{
     ScrolledWindow,
     CssProvider,
 };
+
 use vte4::{
     Pty,
     PtyFlags,
@@ -81,23 +82,15 @@ impl AppTerm {
     }
 
     fn default_styles_file(file_path: &PathBuf) {
-
-        let mut file = match File::create(&file_path) {
-            Ok(file) => file,
-            Err(err) => {
-                panic!("failed to create file: {}", err);
-            }
-        };
-
-        if let Err(err) = file.write_all(Self::default_style().as_bytes()) {
-            panic!("failed to write to file: {}", err);
-        }
-    
+        let mut file = File::create(file_path)
+            .expect("failed to create styles file");
+        file.write_all(Self::default_style().as_bytes())
+            .expect("failed to write default CSS");
     }
 
     fn default_ini(config_dir: Option<&PathBuf>) -> Ini {
         let mut ini = Ini::new();
-    
+
         ini.with_section(None::<String>)
             .set("encoding", "utf-8");
 
@@ -108,16 +101,18 @@ impl AppTerm {
 
         if let Some(dir) = config_dir {
             let styles_file = dir.join("styles.css");
-        
-            if !dir.join("styles.css").exists() {
+
+            if !styles_file.exists() {
                 Self::default_styles_file(&styles_file);
-                ini.with_section(Some("Settings"))
-                    .set("styles_file", styles_file.to_str().unwrap().to_string());
             }
+
+            ini.with_section(Some("Settings"))
+                .set("styles_file", styles_file.to_str().unwrap().to_string());
         }
 
         ini
     }
+
 
     fn make_terminal(
         login_shell: &str,
@@ -131,21 +126,29 @@ impl AppTerm {
         // set terminal font from a string
         // let font_description = pango::FontDescription::from_string("monospace 10");
         // terminal.set_font_desc(Some(&font_description));
-
         let flags = PtyFlags::DEFAULT;
 
         let has_cmd = !command.is_empty();
 
         // Setup command arguments
-        let mut argv = vec![];
-
-        argv.push(login_shell);
+        let mut argv = vec![login_shell];
         if has_cmd {
             argv.push("-c");
-            argv.push(&command);
+            argv.push(command);
         }
 
         let envv = vec![]; // Environment variables can be added here if needed
+        // Fix the issue with accented characters in some locales
+        // Ensure UTF-8 environment
+        // let lang = env::var("LANG").unwrap_or_else(|_| "C.UTF-8".to_string());
+        // let envv = vec![
+        //     format!("LANG={}", lang),
+        //     format!("LC_ALL={}", lang),
+        // ];
+        // let envv = vec![
+        //     "LANG=pt_PT.UTF-8",
+        //     "LC_ALL=pt_PT.UTF-8",
+        // ];
 
         // Spawn flags and optional child setup
         // let spawn_flags = gtk4::glib::SpawnFlags::SEARCH_PATH | gtk4::glib::SpawnFlags::DO_NOT_REAP_CHILD;
@@ -162,17 +165,8 @@ impl AppTerm {
             }
         };
 
-        let timeout = -1; // Set to -1 for no timeout
         let cancellable = Cancellable::new();
         let cancellable_ref = Some(&cancellable);
-        let callback = |pid| {
-            // Callback after spawn (e.g., handle the pid if needed)
-            // println!("pid {:?}", pid);
-            if let Err(err) = pid {
-                eprintln!("Failed to spawn: {:?}", err);
-                std::process::exit(1);
-            }
-        };
 
         // Create a new PTY
         let pty = Pty::new_sync(flags, cancellable_ref)
@@ -191,9 +185,13 @@ impl AppTerm {
             &envv,
             spawn_flags,
             child_setup,
-            timeout,
+            -1, // Set to -1 for no timeout
             cancellable_ref,
-            callback,
+            |pid| {
+                if let Err(err) = pid {
+                    eprintln!("Failed to spawn: {:?}", err);
+                }
+            },
         );
 
         // Link the PTY to the terminal widget
@@ -206,9 +204,9 @@ impl AppTerm {
 
         let ini_file = self.ini_file.clone();
         let (default_width, default_height) = self.window_size;
-        let login_shell = self.login_shell.to_owned();
-        let working_dir = self.working_dir.to_owned();
-        let command = self.command.to_owned();
+        let login_shell = self.login_shell.clone();
+        let working_dir = self.working_dir.clone();
+        let command = self.command.clone();
 
         // https://lazka.github.io/pgi-docs/Gio-2.0/flags.html
 
@@ -222,7 +220,7 @@ impl AppTerm {
             gio::ApplicationFlags::NON_UNIQUE // To not inherit the commands from the first instance
         };
         */
-    
+
         let application = Application::builder()
             // .application_id(APP_ID) // add id from command line
             // .flags(gio::ApplicationFlags::default())
@@ -238,6 +236,7 @@ impl AppTerm {
 
         application.connect_activate(move |app| {
 
+            /*
             let config = if ini_file.exists() {
                 match Ini::load_from_file(&ini_file) {
                     Ok(config) => config,
@@ -245,6 +244,16 @@ impl AppTerm {
                         panic!("failed to parse config file: {}", err);
                     }
                 }
+            } else {
+                Self::default_ini(None)
+            };
+            */
+
+            let config = if ini_file.exists() {
+                Ini::load_from_file(&ini_file).unwrap_or_else(|err| {
+                    eprintln!("failed to parse config file: {}", err);
+                    Ini::new()
+                })
             } else {
                 Self::default_ini(None)
             };
@@ -261,22 +270,22 @@ impl AppTerm {
             let win_width = if default_width == 0 {
                 settings
                     .get("default_width")
-                    .and_then(|width| width.parse::<usize>().ok())
+                    .and_then(|w| w.parse::<usize>().ok())
                     .unwrap_or(DEFAULT_WIDTH)
             } else {
-                default_width as usize
-            };
-            let win_width = win_width.max(100); // Ensure the minimum width is 100
+                default_width
+            }
+            .max(100); // Ensure the minimum width is 100
 
             let win_height = if default_height == 0 {
                 settings
                     .get("default_height")
-                    .and_then(|height| height.parse::<usize>().ok())
+                    .and_then(|h| h.parse::<usize>().ok())
                     .unwrap_or(DEFAULT_HEIGHT)
             } else {
-                default_height as usize
-            };
-            let win_height = win_height.max(100); // Ensure the minimum height is 100
+                default_height
+            }
+            .max(100); // Ensure the minimum height is 100
 
             let window = ApplicationWindow::builder()
                 .application(app)
@@ -286,11 +295,11 @@ impl AppTerm {
                 .width_request(win_width as i32)
                 .height_request(win_height as i32)
                 .build();
-        
+
             window.connect_destroy(|_| {
                 println!("Window destroyed.");
             });
-        
+
             window.set_icon_name(settings.get("icon_name"));
 
             let css_provider = CssProvider::new();
@@ -303,30 +312,45 @@ impl AppTerm {
                     css_provider.load_from_data(Self::default_style().as_str());
                 }
             };
-    
+
             let scrolled_window = ScrolledWindow::builder().build();
             scrolled_window.set_policy(
-                gtk4::PolicyType::Never,
-                gtk4::PolicyType::Automatic);
-    
+                gtk4::PolicyType::Never, 
+                gtk4::PolicyType::Automatic,
+            );
+
             let sw_style_context = scrolled_window.style_context();
             sw_style_context.add_class("scrolled-window");
             sw_style_context.add_provider(&css_provider, gtk4::STYLE_PROVIDER_PRIORITY_APPLICATION);
 
             let terminal = Self::make_terminal(
                 &login_shell, 
-                &working_dir,
-                &command);
-    
+                &working_dir, 
+                &command,
+            );
+
             let term_style_context = terminal.style_context();
             term_style_context.add_class("terminal");
             term_style_context.add_provider(&css_provider, gtk4::STYLE_PROVIDER_PRIORITY_APPLICATION);
-    
+
+            /*
             let win = window.clone();
             terminal.connect_window_title_changed(move |terminal| {
                 if let Some(title) = terminal.window_title() {
                     // println!("Window title changed: {:?}", title);
                     win.set_title(Some(&title));
+                }
+            });
+            */
+
+            // Update window title when terminal changes
+            let window_weak = window.downgrade();
+            terminal.connect_window_title_changed(move |term| {
+                if let Some(title) = term.window_title() {
+                    if let Some(window) = window_weak.upgrade() {
+                        // println!("Window title changed: {:?}", title);
+                        window.set_title(Some(&title));
+                    }
                 }
             });
 
@@ -337,9 +361,12 @@ impl AppTerm {
             // });
 
             // quit the application
-            let win = window.clone();
-            terminal.connect_eof(move |_terminal|{
-                win.close();
+            // Close window on EOF
+            let window_weak = window.downgrade();
+            terminal.connect_eof(move |_| {
+                if let Some(window) = window_weak.upgrade() {
+                    window.close();
+                }
             });
 
             // this code is for testing purposes only
@@ -391,6 +418,7 @@ impl AppTerm {
             });
             */
 
+
             scrolled_window.set_child(Some(&terminal));
             window.set_child(Some(&scrolled_window));
             // window.show();
@@ -402,13 +430,15 @@ impl AppTerm {
             // }
         });
 
-        let empty: Vec<String> = vec![];
-        application.run_with_args(&empty);
+        // Use application.run_with_args(&[]) if your app is a sub-component
+        // of a larger program or if you want to ignore all CLI arguments.
+
+        // let empty: Vec<String> = vec![];
+        // application.run_with_args(&empty);
     
-        // application.run();
-
+        // Use application.run() in standalone GTK apps (normal case).
+        application.run();
     }
-
 
     fn new(
         app_id: Option<&String>,
@@ -423,86 +453,76 @@ impl AppTerm {
         let config_dir = if let Some(dir) = custom_config_dir {
             dir.join(APP_NAME)
         } else {
-            // get the path to the user's home directory
-            let home= match env::var("HOME") {
-                Ok(home) => home,
-                Err(err) => {
-                    panic!("unabled to get the home: {}", err);
-                }
-            };
-    
-            Path::new(&home)
-                .join(".config")
-                .join(APP_NAME)
+            let home = env::var("HOME")
+                .expect("unable to get the home directory");
+            Path::new(&home).join(".config").join(APP_NAME)
         };
 
         let ini_file = config_dir.join(format!("{}.ini", APP_NAME));
 
         if *create_default_settings.unwrap_or(&false) {
             if !config_dir.is_dir() {
-                if let Err(err) = fs::create_dir_all(&config_dir) {
-                    panic!("failed to create configuration directory: {}", err);
-                }
+                fs::create_dir_all(&config_dir)
+                    .expect("failed to create configuration directory");
             }
 
-            if !config_dir.join(&ini_file).exists() {
+            if !ini_file.exists() {
                 // Self::default_ini_file(&config_dir);
                 let conf = Self::default_ini(Some(&config_dir));
-                conf.write_to_file(config_dir.join(format!("{}.ini", APP_NAME)))
-                    .unwrap();
+                conf.write_to_file(&ini_file).unwrap();
             }
         }
 
         AppTerm {
-            app_id: match app_id {
-                Some(id) => id.to_string(),
-                None => "".to_string(),
-            },
+            app_id: app_id.cloned().unwrap_or_default(),
             ini_file,
-            login_shell: match login_shell {
-                Some(shell) => {
-                    if !shell.is_file() {
-                        panic!("The specified login shell does not exist: {}", shell.display());
+            login_shell: login_shell
+                .map(|s| {
+                    if !s.is_file() {
+                        panic!("The specified login shell does not exist: {}", s.display());
                     }
-                    shell.to_string_lossy().to_string()
-                },
-                None => {
-                    env::var("SHELL").unwrap_or_else(|err| {
-                        panic!("Unable to get the user's shell: {}", err);
-                    })
-                },
-            },
-            command: match command {
-                Some(cmd) => cmd.to_string(),
-                None => "".to_string(),
-            },
-            working_dir: match working_dir {
-                Some(dir) => {
-                    if !dir.is_dir() {
-                        panic!("The specified working directory does not exist: {}", dir.display());
+                    s.to_string_lossy().to_string()
+                })
+                .unwrap_or_else(|| {
+                    env::var("SHELL").expect("Unable to get the user's shell")
+                }),
+            command: command.cloned().unwrap_or_default(),
+            working_dir: working_dir
+                .map(|d| {
+                    if !d.is_dir() {
+                        panic!("The specified working directory does not exist: {}", d.display());
                     }
-                    dir.to_string_lossy().to_string()
-                },
-                None => "".to_string(),
-            },
-            window_size: match window_size {
-                Some(size) => {
-                    let size_parts: Vec<&str> = size.split('x').collect();
-                    if size_parts.len()!= 2 {
-                        panic!("Invalid window size: {}", size);
+                    d.to_string_lossy().to_string()
+                })
+                .unwrap_or_default(),
+            window_size: window_size
+                .map(|s| {
+                    let parts: Vec<&str> = s.split('x').collect();
+                    if parts.len() != 2 {
+                        panic!("Invalid window size: {}", s);
                     }
                     (
-                        size_parts[0].parse::<usize>().unwrap_or(DEFAULT_WIDTH),
-                        size_parts[1].parse::<usize>().unwrap_or(DEFAULT_HEIGHT),
+                        parts[0].parse::<usize>().unwrap_or(DEFAULT_WIDTH),
+                        parts[1].parse::<usize>().unwrap_or(DEFAULT_HEIGHT),
                     )
-                },
-                None => (0, 0)
-            },
+                })
+                .unwrap_or((0, 0)),
         }
     }
 }
 
+
+// fn print_environment() {
+//     println!("=== Environment Variables ===");
+//     for (key, value) in std::env::vars() {
+//         println!("{}={}", key, value);
+//     }
+//     println!("=============================");
+// }
+
 fn main() {
+
+    // print_environment();
 
     let matches = Command::new(APP_NAME)
         .version(VERSION)
@@ -512,57 +532,52 @@ fn main() {
                 .help(format!("window application ID ({})", APP_NAME))
                 .short('a')
                 .long("app-id")
-                .value_name("ID")
-                .value_parser(value_parser!(String))
-                .required(false))
+                .value_parser(value_parser!(String)),
+                // .required(false), // redundant
+        )
         .arg(
             Arg::new("directory")
                 .help("Sets a custom settings directory")
                 .short('d')
                 .long("dir")
-                .value_name("PATH")
-                .value_parser(value_parser!(PathBuf))
-                .required(false))
+                .value_parser(value_parser!(PathBuf)),
+        )
         .arg(
             Arg::new("init_settings")
                 .help("Create the directory with the default settings if they do not exist")
                 .short('i')
                 .long("init-settings")
-                .required(false)
-                .action(ArgAction::SetTrue)) // set true if the arg is added
+                .action(ArgAction::SetTrue),
+        )
         .arg(
             Arg::new("execute")
                 .help("Execute the specified command (for compatibility with xterm -e)")
                 .short('e')
                 .long("execute")
-                .value_name("CMD")
-                .value_parser(value_parser!(String))
-                .required(false))
+                .value_parser(value_parser!(String)),
+        )
         .arg(
             Arg::new("login_shell")
                 .help("start shell as a login shell")
                 .short('L')
                 .long("login-shell")
-                .value_name("PATH")
-                .value_parser(value_parser!(PathBuf))
-                .required(false))
+                .value_parser(value_parser!(PathBuf)),
+        )
         .arg(
             Arg::new("working_directory")
                 .help("directory to start in (CWD)")
                 .short('D')
                 .long("working-directory")
-                .value_name("PATH")
-                .value_parser(value_parser!(PathBuf))
-                .required(false))
+                .value_parser(value_parser!(PathBuf)),
+        )
         .arg(
             Arg::new("window_size_pixels")
                 .help("initial width and height, in pixels")
                 .short('w')
                 .long("window-size-pixels")
-                .value_name("WIDTHxHEIGHT")
-                .value_parser(value_parser!(String))
-                .required(false)
-        ).get_matches();
+                .value_parser(value_parser!(String)),
+        )
+        .get_matches();
 
     AppTerm::new(
         matches.get_one::<String>("app_id"),

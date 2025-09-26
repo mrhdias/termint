@@ -3,6 +3,8 @@
 # Termint
 Minimal Gtk4/Vte4 terminal emulator written in Rust, perfect for enjoying a cup of mint tea while working on your command line skills.
 
+[![Rust](https://github.com/mrhdias/termint/actions/workflows/rust.yml/badge.svg)](https://github.com/mrhdias/termint/actions/workflows/rust.yml)
+
 To take a test drive:
 ```
 $ git clone https://github.com/mrhdias/termint

@@ -51,7 +51,7 @@ Everyone Loves Screenshots!
 ![Termint Screenshot](https://raw.githubusercontent.com/mrhdias/termint/main/screenshot.png)
 
 > [!TIP]
-> How to fix the issue with accents on letters in Wayland/Labwc?
+> How to fix the issue in Archlinux with accents on letters in Wayland/Labwc?
 ```
 # Install fcitx
 $ sudo pacman -S fcitx5 fcitx5-gtk fcitx5-qt fcitx5-configtool

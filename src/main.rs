@@ -123,6 +123,9 @@ impl AppTerm {
         // https://python-forum.io/thread-16720.html
         let terminal = Terminal::new();
 
+        terminal.set_focus_on_click(true);
+        terminal.set_can_focus(true);
+
         // set terminal font from a string
         // let font_description = pango::FontDescription::from_string("monospace 10");
         // terminal.set_font_desc(Some(&font_description));
@@ -418,6 +421,22 @@ impl AppTerm {
             });
             */
 
+            // 1. Middle-Click to Paste (Linux Primary Selection)
+            let terminal_middle_click = terminal.clone();
+            let middle_gesture = gtk4::GestureClick::new();
+            middle_gesture.set_button(2); // Button 2 is the Middle Mouse Button
+
+            middle_gesture.connect_pressed(move |_, _, _, _| {
+                // This pastes from the PRIMARY selection (what you just highlighted)
+                terminal_middle_click.paste_primary();
+            });
+            terminal.add_controller(middle_gesture);
+
+            // 2. Auto-copy on Highlight
+            // This ensures that as soon as you select text, it's ready for middle-click
+            terminal.connect_selection_changed(|term| {
+                term.copy_primary();
+            });
 
             scrolled_window.set_child(Some(&terminal));
             window.set_child(Some(&scrolled_window));

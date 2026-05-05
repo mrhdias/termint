@@ -65,3 +65,8 @@ QT_IM_MODULE=fcitx
 XMODIFIERS=@im=fcitx
 GDK_BACKEND=wayland
 ```
+> How to fix issues with copying/pasting text using Arch Linux on Wayland/Labwc?
+```
+# Install wl-clipboard/xclip
+$ sudo pacman -S wl-clipboard xclip
+```

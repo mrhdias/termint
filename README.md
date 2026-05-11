@@ -69,4 +69,14 @@ GDK_BACKEND=wayland
 ```
 # Install wl-clipboard/xclip
 $ sudo pacman -S wl-clipboard xclip
+# Install clipman for clipboard history
+$ git clone https://aur.archlinux.org/clipman.git
+$ cd clipman
+$ makepkg -si
+$ nano -w ~/.config/labwc/autostart
+```
+Add the following line:
+```
+wl-paste --type text --watch clipman store &
+wl-paste --primary --watch clipman store &
 ```

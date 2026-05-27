@@ -1,7 +1,9 @@
 ![Termint Logo](https://raw.githubusercontent.com/mrhdias/termint/main/icons/hicolor/64x64/apps/termint.svg)
 
 # Termint
-Minimal Gtk4/Vte4 terminal emulator written in Rust, perfect for enjoying a cup of mint tea while working on your command line skills.
+Minimal GTK4/VTE4 terminal emulator written in Rust, perfect for enjoying a cup of mint tea while sharpening your command-line skills.
+
+Copy/paste works with the middle button on a 3-button mouse.
 
 [![Rust](https://github.com/mrhdias/termint/actions/workflows/rust.yml/badge.svg)](https://github.com/mrhdias/termint/actions/workflows/rust.yml)
 

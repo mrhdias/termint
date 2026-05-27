@@ -421,21 +421,35 @@ impl AppTerm {
             });
             */
 
-            // 1. Middle-Click to Paste (Linux Primary Selection)
+            // 1. Middle-Click to Paste (Using persistent CLIPBOARD instead of primary)
             let terminal_middle_click = terminal.clone();
             let middle_gesture = gtk4::GestureClick::new();
             middle_gesture.set_button(2); // Button 2 is the Middle Mouse Button
 
             middle_gesture.connect_pressed(move |_, _, _, _| {
-                // This pastes from the PRIMARY selection (what you just highlighted)
-                terminal_middle_click.paste_primary();
+                // Get the default clipboard for the terminal widget's display
+                let clipboard = terminal_middle_click.clipboard();
+                
+                // Clone the terminal wrapper again so this specific click event can own its own reference
+                let term_clone = terminal_middle_click.clone();
+
+                // Fetch text asynchronously from the persistent clipboard and paste it
+                clipboard.read_text_async(None::<&gio::Cancellable>, move |res| {
+                    if let Ok(Some(text)) = res {
+                        // Use the nested clone here so we don't steal the outer one
+                        term_clone.feed_child(text.as_bytes());
+                    }
+                });
             });
             terminal.add_controller(middle_gesture);
 
             // 2. Auto-copy on Highlight
-            // This ensures that as soon as you select text, it's ready for middle-click
+            // Copies to the persistent clipboard buffer using VTE's native method
             terminal.connect_selection_changed(|term| {
-                term.copy_primary();
+                if term.has_selection() {
+                    // This explicitly copies the text selection to the system CLIPBOARD
+                    term.copy_clipboard_format(vte4::Format::Text);
+                }
             });
 
             scrolled_window.set_child(Some(&terminal));

@@ -421,6 +421,7 @@ impl AppTerm {
             });
             */
 
+            /*
             // 1. Middle-Click to Paste (Using native VTE clipboard handler)
             let terminal_middle_click = terminal.clone();
             let middle_gesture = gtk4::GestureClick::new();
@@ -440,7 +441,24 @@ impl AppTerm {
                     term.copy_clipboard_format(vte4::Format::Text);
                 }
             });
+            */
 
+            // 1. Configure GTK Settings to handle Middle-Click Paste natively
+            if let Some(settings) = gtk4::Settings::default() {
+                // This forces GTK/VTE to natively handle middle-click pasting 
+                // cleanly without needing any custom gesture code.
+                settings.set_gtk_enable_primary_paste(true);
+            }
+
+            // 2. Auto-copy on Highlight
+            // This copies text directly to the system CLIPBOARD when you select it,
+            // which the native middle-click configuration above will read perfectly.
+            terminal.connect_selection_changed(|term| {
+                if term.has_selection() {
+                    term.copy_clipboard_format(vte4::Format::Text);
+                }
+            });
+            
             scrolled_window.set_child(Some(&terminal));
             window.set_child(Some(&scrolled_window));
             // window.show();
